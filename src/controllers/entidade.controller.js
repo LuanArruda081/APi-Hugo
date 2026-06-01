@@ -1,12 +1,8 @@
 const prisma = require('../utils/prisma');
 
-const POOL_TOTAL = 100;
-const COTA_POR_USUARIO = 2;
+const LIMITE_POOL = 100;
+const LIMITE_USUARIO = 2;
 
-/**
- * POST /entidades
- * Cria uma nova entidade com status RASCUNHO para o usuário autenticado.
- */
 async function criar(req, res, next) {
   try {
     const { titulo, descricao } = req.body;
@@ -30,101 +26,64 @@ async function criar(req, res, next) {
   }
 }
 
-/**
- * POST /entidades/:id/submeter
- *
- * Lógica crítica com lock pessimista (SELECT FOR UPDATE):
- * 1. Abre transação
- * 2. Bloqueia o registro PoolControl para evitar race conditions
- * 3. Conta quantas vagas o usuário já usou
- * 4. Verifica cota pessoal (máx 2 por usuário)
- * 5. Verifica pool global (máx 100)
- * 6. Atualiza o PoolControl e a Entidade atomicamente
- *
- * Nunca ultrapassará 100 vagas globais nem 2 por usuário,
- * mesmo com centenas de requisições simultâneas.
- */
 async function submeter(req, res, next) {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
     const resultado = await prisma.$transaction(async (tx) => {
-      // ------------------------------------------------------------------
-      // 1. Verifica se a entidade existe E pertence ao usuário autenticado
-      // ------------------------------------------------------------------
-      const entidade = await tx.entidade.findUnique({
-        where: { id },
-      });
+      const entidade = await tx.entidade.findUnique({ where: { id } });
 
       if (!entidade || entidade.userId !== userId) {
         return { status: 404, body: { error: 'Entidade não encontrada' } };
       }
 
       if (entidade.status !== 'RASCUNHO') {
-        return {
-          status: 400,
-          body: { error: `Entidade já está com status ${entidade.status}` },
-        };
+        return { status: 400, body: { error: `Entidade já está com status ${entidade.status}` } };
       }
 
-      // ------------------------------------------------------------------
-      // 2. SELECT FOR UPDATE no PoolControl — bloqueia a linha inteira
-      //    até o commit, impedindo leituras sujas e race conditions.
-      // ------------------------------------------------------------------
-      const [poolRow] = await tx.$queryRaw`
+      // lock pessimista no pool para evitar race condition
+      const [pool] = await tx.$queryRaw`
         SELECT id, "totalVagas", "vagasUsadas"
         FROM pool_control
         WHERE id = 1
         FOR UPDATE
       `;
 
-      if (!poolRow) {
-        throw new Error('PoolControl não inicializado. Execute o seed.');
+      if (!pool) {
+        throw new Error('PoolControl não encontrado');
       }
 
-      // ------------------------------------------------------------------
-      // 3. Conta vagas já usadas por este usuário (dentro da transação)
-      // ------------------------------------------------------------------
-      const [cotaRow] = await tx.$queryRaw`
+      const [cotaUsuario] = await tx.$queryRaw`
         SELECT COUNT(*) as total
         FROM entidades
         WHERE "userId" = ${userId}
           AND status IN ('PROCESSANDO', 'CONCLUIDO')
       `;
-      const vagasDoUsuario = parseInt(cotaRow.total, 10);
 
-      // ------------------------------------------------------------------
-      // 4. Regra: máximo 2 vagas por usuário
-      // ------------------------------------------------------------------
-      if (vagasDoUsuario >= COTA_POR_USUARIO) {
+      const vagasDoUsuario = parseInt(cotaUsuario.total, 10);
+
+      if (vagasDoUsuario >= LIMITE_USUARIO) {
         return { status: 400, body: { error: 'COTA_PESSOAL' } };
       }
 
-      // ------------------------------------------------------------------
-      // 5. Regra: pool global de 100 vagas
-      // ------------------------------------------------------------------
-      if (parseInt(poolRow.vagasUsadas, 10) >= POOL_TOTAL) {
+      if (parseInt(pool.vagasUsadas, 10) >= LIMITE_POOL) {
         return { status: 400, body: { error: 'POOL_CHEIO' } };
       }
 
-      // ------------------------------------------------------------------
-      // 6. Atualiza PoolControl e Entidade atomicamente
-      // ------------------------------------------------------------------
       await tx.$executeRaw`
         UPDATE pool_control
         SET "vagasUsadas" = "vagasUsadas" + 1
         WHERE id = 1
       `;
 
-      const entidadeAtualizada = await tx.entidade.update({
+      const atualizada = await tx.entidade.update({
         where: { id },
         data: { status: 'PROCESSANDO' },
       });
 
-      return { status: 200, body: entidadeAtualizada };
+      return { status: 200, body: atualizada };
     }, {
-      // Nível de isolamento máximo para garantir consistência
       isolationLevel: 'Serializable',
       timeout: 10000,
     });
@@ -135,17 +94,11 @@ async function submeter(req, res, next) {
   }
 }
 
-/**
- * POST /entidades/:id/finalizar
- * Muda status de PROCESSANDO para CONCLUIDO.
- * Só o dono da entidade pode finalizar.
- */
 async function finalizar(req, res, next) {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Verifica existência e ownership
     const entidade = await prisma.entidade.findUnique({ where: { id } });
 
     if (!entidade || entidade.userId !== userId) {

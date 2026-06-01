@@ -1,9 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 
-// Singleton para evitar múltiplas conexões no desenvolvimento
-const prisma = global.prisma || new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
-});
+const prisma = global.prisma || new PrismaClient();
 
 if (process.env.NODE_ENV !== 'production') {
   global.prisma = prisma;

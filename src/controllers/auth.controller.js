@@ -2,10 +2,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../utils/prisma');
 
-/**
- * POST /auth/registrar
- * Cria um novo usuário com senha hasheada.
- */
 async function registrar(req, res, next) {
   try {
     const { email, password, name } = req.body;
@@ -18,17 +14,15 @@ async function registrar(req, res, next) {
       return res.status(400).json({ error: 'A senha deve ter ao menos 6 caracteres' });
     }
 
-    // Verifica se email já está em uso
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
+    const usuarioExistente = await prisma.user.findUnique({ where: { email } });
+    if (usuarioExistente) {
       return res.status(409).json({ error: 'Email já cadastrado' });
     }
 
-    // Hash da senha com custo 10
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const senhaHash = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
-      data: { email, password: hashedPassword, name },
+      data: { email, password: senhaHash, name },
       select: { id: true, email: true, name: true, createdAt: true },
     });
 
@@ -40,10 +34,6 @@ async function registrar(req, res, next) {
   }
 }
 
-/**
- * POST /auth/login
- * Autentica o usuário e retorna um JWT.
- */
 async function login(req, res, next) {
   try {
     const { email, password } = req.body;
@@ -57,8 +47,8 @@ async function login(req, res, next) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
-    const senhaValida = await bcrypt.compare(password, user.password);
-    if (!senhaValida) {
+    const senhaCorreta = await bcrypt.compare(password, user.password);
+    if (!senhaCorreta) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 

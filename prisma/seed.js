@@ -3,9 +3,6 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Iniciando seed...');
-
-  // Cria o registro único de controle do pool global
   const pool = await prisma.poolControl.upsert({
     where: { id: 1 },
     update: {},
@@ -16,13 +13,12 @@ async function main() {
     },
   });
 
-  console.log(`✅ PoolControl criado: ${pool.vagasUsadas}/${pool.totalVagas} vagas usadas`);
-  console.log('🌱 Seed concluído!');
+  console.log(`Pool iniciado: ${pool.vagasUsadas}/${pool.totalVagas} vagas usadas`);
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Erro no seed:', e);
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

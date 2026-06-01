@@ -1,9 +1,10 @@
-# E-commerce API — Hugo
+# E-commerce API — Atividade Hugo
+
 API REST Node.js com controle de vagas concorrente, autenticação JWT e PostgreSQL.
 
 ---
 
-# Visão Geral
+## Visão Geral
 
 | Item | Valor |
 |---|---|
@@ -18,7 +19,7 @@ API REST Node.js com controle de vagas concorrente, autenticação JWT e Postgre
 
 ---
 
-# Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 ecommerce-api/
@@ -51,7 +52,7 @@ ecommerce-api/
 
 ---
 
-# Como Rodar
+## Como Rodar
 
 ### Pré-requisitos
 - [Docker](https://docs.docker.com/get-docker/) instalado
@@ -85,7 +86,7 @@ curl http://localhost:8080/health
 
 ---
 
-## 📡 Endpoints
+## Endpoints
 
 ### Autenticação
 
@@ -164,7 +165,7 @@ curl -X POST http://localhost:8080/entidades/UUID_AQUI/finalizar \
 
 ---
 
-## 🔒 Controle de Concorrência
+## Controle de Concorrência
 
 ### Problema resolvido
 Sem proteção, duas requisições simultâneas podem ler `vagasUsadas = 99`, ambas decidem que há vaga, e o banco termina com 101 vagas — violando a regra.
@@ -182,15 +183,15 @@ FOR UPDATE;          -- ← bloqueia a linha para escrita exclusiva
 O `FOR UPDATE` garante que somente uma transação por vez pode ler e modificar o `PoolControl`. As demais ficam em fila e executam após o commit da anterior — já com o contador atualizado.
 
 **Garantias:**
-- ✅ Nunca ultrapassa 100 vagas
-- ✅ Nunca ultrapassa 2 vagas por usuário
-- ✅ Sem race conditions
-- ✅ Sem deadlocks (acesso sempre na mesma ordem)
-- ✅ Sem erros 500 em concorrência
+- Nunca ultrapassa 100 vagas
+- Nunca ultrapassa 2 vagas por usuário
+- Sem race conditions
+- Sem deadlocks (acesso sempre na mesma ordem)
+- Sem erros 500 em concorrência
 
 ---
 
-## 🔥 Stress Test
+## Stress Test
 
 Testa 60 usuários em paralelo, cada um tentando 3 submissões (180 tentativas para 100 vagas).
 
@@ -201,20 +202,20 @@ node stress-test.js
 
 **Saída esperada:**
 ```
-📊 RESULTADO DO STRESS TEST
+RESULTADO DO STRESS TEST
 ═══════════════════════════════
-✅ Registros realizados:    60
-📦 Entidades criadas:       180
-🎯 Submetidas com sucesso:  100   ← nunca mais que 100
-🔴 Rejeitadas (POOL_CHEIO): 60
-🟡 Rejeitadas (COTA_PESSOAL): 20
-❌ Erros 5xx / exceções:    0     ← zero erros
-🏆 PASSOU: Nenhuma violação de concorrência detectada!
+Registros realizados:    60
+Entidades criadas:       180
+Submetidas com sucesso:  100   ← nunca mais que 100
+Rejeitadas (POOL_CHEIO): 60
+Rejeitadas (COTA_PESSOAL): 20
+Erros 5xx / exceções:    0     ← zero erros
+PASSOU: Nenhuma violação de concorrência detectada!
 ```
 
 ---
 
-## 🗄️ Modelos do Banco
+## Modelos do Banco
 
 ### `users`
 | Campo | Tipo | Descrição |
@@ -242,7 +243,7 @@ node stress-test.js
 
 ---
 
-## ⚙️ Variáveis de Ambiente
+## Variáveis de Ambiente
 
 | Variável | Padrão | Descrição |
 |---|---|---|
@@ -253,7 +254,7 @@ node stress-test.js
 
 ---
 
-## 🛑 Parar os containers
+## Parar os containers
 
 ```bash
 docker compose down          # para e remove containers

@@ -4,16 +4,10 @@ const { criar, submeter, finalizar } = require('../controllers/entidade.controll
 
 const router = Router();
 
-// Todas as rotas de entidades exigem autenticação
 router.use(authMiddleware);
 
-// POST /entidades
 router.post('/', criar);
-
-// POST /entidades/:id/submeter
 router.post('/:id/submeter', submeter);
-
-// POST /entidades/:id/finalizar
 router.post('/:id/finalizar', finalizar);
 
 module.exports = router;
